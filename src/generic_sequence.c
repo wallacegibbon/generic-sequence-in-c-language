@@ -2,12 +2,32 @@
 #include <stdlib.h>
 #include <string.h>
 
+static inline void _gs_get(struct generic_sequence *self, size_t index, void *result) {
+	memcpy(result, self->buffer + index * self->elem_size, self->elem_size);
+}
+
+static inline void _gs_set(struct generic_sequence *self, size_t index, void *value) {
+	memcpy(self->buffer + index * self->elem_size, value, self->elem_size);
+}
+
+static inline void _gs_swap(struct generic_sequence *self, size_t i, size_t j) {
+	uint8_t *tmp;
+	tmp = alloca(self->elem_size);
+	_gs_get(self, i, tmp);
+	memcpy(self->buffer + i * self->elem_size, self->buffer + j * self->elem_size, self->elem_size);
+	_gs_set(self, j, tmp);
+}
+
+static inline int _gs_cmp(struct generic_sequence *self, size_t i, size_t j) {
+	return self->cmp_fn(self->buffer + i * self->elem_size, self->buffer + j * self->elem_size);
+}
+
 /// return 1 on succeed
-int gs_at(struct generic_sequence *self, size_t index, void *result) {
+int gs_get(struct generic_sequence *self, size_t index, void *result) {
 	if (index >= self->elem_nums)
 		return 0;
 
-	memcpy(result, self->buffer + index * self->elem_size, self->elem_size);
+	_gs_get(self, index, result);
 	return 1;
 }
 
@@ -16,7 +36,7 @@ int gs_set(struct generic_sequence *self, size_t index, void *value) {
 	if (index >= self->elem_nums)
 		return 0;
 
-	memcpy(self->buffer + index * self->elem_size, value, self->elem_size);
+	_gs_set(self, index, value);
 	return 1;
 }
 
@@ -26,7 +46,7 @@ int gs_push(struct generic_sequence *self, void *item) {
 	if (self->cursor >= self->elem_nums)
 		return 0;
 
-	memcpy(self->buffer + self->cursor * self->elem_size, item, self->elem_size);
+	_gs_set(self, self->cursor, item);
 	self->cursor++;
 	return 1;
 }
@@ -37,7 +57,7 @@ int gs_pop(struct generic_sequence *self, void *item) {
 		return 0;
 
 	self->cursor--;
-	memcpy(item, self->buffer + self->cursor * self->elem_size, self->elem_size);
+	_gs_get(self, self->cursor, item);
 	return 1;
 }
 
@@ -53,8 +73,25 @@ int gs_iternext(struct generic_sequence *self, void *item) {
 		return 0;
 	}
 
-	memcpy(item, self->buffer + self->cursor * self->elem_size, self->elem_size);
+	_gs_get(self, self->cursor, item);
 	self->cursor++;
+	return 1;
+}
+
+void gs_set_cmp_fn(struct generic_sequence *self, generic_sequence_cmp_fn fn) {
+	self->cmp_fn = fn;
+}
+
+int gs_sort(struct generic_sequence *self) {
+	int i, j, k;
+
+	if (self->cmp_fn == NULL)
+		return 0;
+
+	for (i = 0; i < self->elem_nums - 1; i++)
+		for (j = 0, k = 1; j < self->elem_nums - 1 - i; j++, k++)
+			if (_gs_cmp(self, j, k) > 0)
+				_gs_swap(self, j, k);
 	return 1;
 }
 
@@ -73,6 +110,7 @@ struct generic_sequence *gs_new(size_t elem_nums, size_t elem_size) {
 
 	memset(self->buffer, 0, self->buffer_size);
 	self->cursor = 0;
+	self->cmp_fn = NULL;
 	return self;
 
 fail2:
@@ -81,7 +119,7 @@ fail:
 	return NULL;
 }
 
-void gs_cleanup(struct generic_sequence *self) {
+void gs_free(struct generic_sequence *self) {
 	free(self->buffer);
 	free(self);
 }
