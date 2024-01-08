@@ -10,7 +10,8 @@ static inline void _gs_set(struct generic_sequence *self, size_t index, void *va
 	memcpy(self->buffer + index * self->elem_size, value, self->elem_size);
 }
 
-static inline void _gs_swap(struct generic_sequence *self, size_t i, size_t j) {
+/// Please ensure this function is not inlined. Or memory consumption could be big.
+static void _gs_swap(struct generic_sequence *self, size_t i, size_t j) {
 	uint8_t *tmp;
 	tmp = alloca(self->elem_size);
 	_gs_get(self, i, tmp);
