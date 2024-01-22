@@ -1,6 +1,19 @@
 #include "generic_sequence.h"
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+/// The implementation details of this struct do not need to be exposed to users.
+/// A forward declaration in header file is enough for users.
+struct generic_sequence {
+	size_t elem_nums;
+	size_t elem_size;
+	size_t buffer_size;
+	uint8_t *buffer;
+	/// the cursor can be used as both iterator index and stack pointer
+	size_t cursor;
+	generic_sequence_cmp_fn cmp_fn;
+};
 
 static inline void _gs_get(struct generic_sequence *self, size_t index, void *result) {
 	memcpy(result, self->buffer + index * self->elem_size, self->elem_size);
